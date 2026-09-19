@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-@dataclass
+@dataclass(frozen=True)
 class Settings:
     token: str = os.environ["BOT_TOKEN"]
 
