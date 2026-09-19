@@ -3,7 +3,8 @@ from .base import SearchProviders, SearchResult
 
 
 class WikipediaProviders(SearchProviders):
-    url = "https://ru.wikipedia.org/w/api.php"
+    url: str = "https://ru.wikipedia.org/w/api.php"
+    name: str = "Wikipedia"
 
     async def get(self, query: str) -> list[SearchResult] | None:
         params = {
@@ -19,17 +20,19 @@ class WikipediaProviders(SearchProviders):
             "exchars": 300,
             "inprop": "url",
         }
+
         async with self.session.get(self.url, params=params) as resp:
             resp.raise_for_status()
             data = await resp.json()
+
             if "query" in data:
-                pages = data["query"]["pages"]
+
                 return [
                     SearchResult(
                         title=data["title"],
-                        description=data["extract"],
                         url=data["fullurl"],
-                        source="Wikipedia"
+                        source=self.name,
+                        extra={"description": data["extract"]}
                     ) 
-                    for data in pages
+                    for data in data["query"]["pages"]
                 ]
