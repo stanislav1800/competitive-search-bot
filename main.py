@@ -1,9 +1,13 @@
 import asyncio
+import logging
 
 from aiogram import Bot, Dispatcher
 
 from config import settings
 from handlers import comands, search
+from logging_config import setup_logging
+
+logger = logging.getLogger(__name__)
 
 
 async def main():
@@ -15,12 +19,13 @@ async def main():
         search.router,
     )
 
-    print("Starting bot...")
+    logger.info("Starting bot...")
     try:
         await dp.start_polling(bot)
     finally:
-        print("Bot stopped")
+        logger.info("Bot stopped")
 
 
 if __name__ == "__main__":
+    setup_logging()
     asyncio.run(main())
