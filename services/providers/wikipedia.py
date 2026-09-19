@@ -22,7 +22,6 @@ class WikipediaProviders(SearchProviders):
         async with self.session.get(self.url, params=params) as resp:
             resp.raise_for_status()
             data = await resp.json()
-            print(data)
             if "query" in data:
                 pages = data["query"]["pages"]
                 return [
