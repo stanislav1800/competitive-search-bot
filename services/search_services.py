@@ -1,23 +1,26 @@
 from aiohttp import ClientSession
+import asyncio
 
-from services.providers.base import SearchResult
-from services.providers.github import GitHubProvider
-from services.providers.stack_overflow import StackOverflowProvider
-from services.providers.wikipedia import WikipediaProviders
+from services.providers.base import SearchResult, SearchProviders
 
 
-async def get_resources(request: str) -> dict[str, list[SearchResult]]:
-    results = {}
+class SearchService:
+    def __init__(self, session: ClientSession, providers: list[SearchProviders]) -> None:
+        self.session = session
+        self.providers = providers
 
-    async with ClientSession(
-            headers={
-                "User-Agent": "competitive-search-bot/0.1 (https://github.com/<аккаунт>/competitive-search-bot)",
-            }
-        ) as session:
-        providers = [WikipediaProviders(session), GitHubProvider(session), StackOverflowProvider(session)]
+    async def start(self) -> None:
+        await asyncio.gather(*[provider.setup() for provider in self.providers], return_exceptions=True)
 
-        for provider in providers:
-            result = await provider.get(request)
-            results[provider.name] = result
+    async def search(self, request: str) -> dict[str, list[SearchResult]]:
+        results = {}
+
+        responds = await asyncio.gather(*[provider.get(request) for provider in self.providers], return_exceptions=True)
+
+        for provider, respond in zip(self.providers, responds):
+            if isinstance(respond, Exception):
+                results[provider.name] = []
+            else:
+                results[provider.name] = respond
 
         return results
