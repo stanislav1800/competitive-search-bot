@@ -26,7 +26,6 @@ class WikipediaProviders(SearchProviders):
             data = await resp.json()
 
             if "query" in data:
-
                 return [
                     SearchResult(
                         title=data["title"],

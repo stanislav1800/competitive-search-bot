@@ -13,7 +13,6 @@ class SearchResult:
     extra: dict[str, Any] = field(default_factory=dict)
 
 
-
 class SearchProviders(ABC):
     url: str
     name: str
@@ -24,3 +23,5 @@ class SearchProviders(ABC):
     @abstractmethod
     async def get(self) -> SearchResult:
         pass
+
+    async def setup(self) -> None: ...
