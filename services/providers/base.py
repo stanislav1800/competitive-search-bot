@@ -1,16 +1,17 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 from aiohttp import ClientSession
 
 
 @dataclass
-class SearchResult:
+class SearchResult(ABC):
     title: str
     url: str
     source: str
-    extra: dict[str, Any] = field(default_factory=dict)
+
+    @abstractmethod
+    def render(self) -> str: ...
 
 
 class SearchProviders(ABC):
@@ -21,7 +22,6 @@ class SearchProviders(ABC):
         self.session = session
 
     @abstractmethod
-    async def get(self) -> SearchResult:
-        pass
+    async def get(self) -> SearchResult: ...
 
     async def setup(self) -> None: ...

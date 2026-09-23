@@ -1,12 +1,26 @@
+from dataclasses import dataclass
+from html import escape
 
 from .base import SearchProviders, SearchResult
 
+@dataclass
+class StackOverflowResult(SearchResult):
+    answer_count: int
+    score: int
+    is_answered: bool
+
+    def render(self) -> str:
+        status = "✅ Есть принятый ответ" if self.is_answered else "❓ Без принятого ответа"
+        return (
+            f'<a href="{self.url}"><b>{escape(self.title)}</b></a>\n'
+            f"👍 {self.score} · 💬 {self.answer_count} · {status}\n"
+        )
 
 class StackOverflowProvider(SearchProviders):
     url: str = "https://api.stackexchange.com/2.3/search/advanced"
     name: str = "StackOverflow"
 
-    async def get(self, query: str) -> list[SearchResult] | None:
+    async def get(self, query: str) -> list[StackOverflowResult] | None:
         params = {
             "q": query,
             "order": "desc",
@@ -15,22 +29,19 @@ class StackOverflowProvider(SearchProviders):
             "pagesize": 5
         }
 
-        async with self.session.get(self.url, params=params) as resp:
+        async with self.session.get(self.url, params=params, timeout=30) as resp:
             resp.raise_for_status()
             data = await resp.json()
 
             if "items" in data:
-                
                 return [
-                    SearchResult(
+                    StackOverflowResult(
                         title=item["title"],
                         url=item["link"],
                         source=self.name,
-                        extra={
-                            "answer_count": item["answer_count"],
-                            "score": item["score"],
-                            "is_answered": item["is_answered"],
-                        }
+                        answer_count=item["answer_count"],
+                        score=item["score"],
+                        is_answered=item["is_answered"],
                     )
                     for item in data["items"]
                 ]
