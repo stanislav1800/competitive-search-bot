@@ -1,20 +1,22 @@
+import asyncio
+
 from aiogram import Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import LinkPreviewOptions, Message
+from aiogram.types import Message
 
-from formatters import format_text
-from services.search_services import SearchService
 from states import Search
 
 router = Router()
 
 
 @router.message(Search.search)
-async def find_result(msg: Message, state: FSMContext, search: SearchService):
+async def find_result(msg: Message, state: FSMContext, queue: asyncio.Queue):
     if msg.text:
-        message = await msg.reply("🔎 Ищу…")
-        responses = await search.search(msg.text)
-        await message.edit_text(format_text(responses), parse_mode="HTML", link_preview_options=LinkPreviewOptions(is_disabled=True))
+        try:
+            message = await msg.reply(f"🔎 Ищу… (в очереди: {queue.qsize()})")
+            queue.put_nowait((msg.text, msg.chat.id, message.message_id))
+        except asyncio.QueueFull:
+            await msg.reply("Бот сейчас загружен попробуйте позже")
         await state.clear()
     else:
         await msg.reply("Введите текст")

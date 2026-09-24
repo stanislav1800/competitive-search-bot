@@ -1,3 +1,5 @@
+import asyncio
+
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
 from aiohttp import ClientSession
@@ -8,6 +10,7 @@ from services.providers.github import GitHubProvider
 from services.providers.stack_overflow import StackOverflowProvider
 from services.providers.wikipedia import WikipediaProviders
 from services.search_services import SearchService
+from worker import worker
 
 
 async def init_bot() -> tuple[Bot, Dispatcher]:
@@ -38,11 +41,20 @@ async def on_startup(bot: Bot, dispatcher: Dispatcher):
     await search_service.start()
     await set_commands(bot)
 
+    queue = asyncio.Queue(50)
+    workers = [asyncio.create_task(worker(queue, bot, search_service)) for _ in range(4)]
+
     dispatcher["session"] = session
-    dispatcher["search"] = search_service
+    dispatcher["workers"] = workers
+    dispatcher["queue"] = queue
 
 
 async def on_shutdown(dispatcher: Dispatcher):
+    workers: list[asyncio.Task] = dispatcher["workers"]
+    queue: asyncio.Queue = dispatcher["queue"]
+    for _ in range(len(workers)):
+        queue.put_nowait(None)
+
     session: ClientSession = dispatcher["session"]
     await session.close()
 
