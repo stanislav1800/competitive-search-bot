@@ -9,8 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class SearchService:
-    def __init__(self, session: ClientSession, providers: list[SearchProviders]) -> None:
-        self.session = session
+    def __init__(self, providers: list[SearchProviders]) -> None:
         self.providers = providers
 
     async def start(self) -> None:
