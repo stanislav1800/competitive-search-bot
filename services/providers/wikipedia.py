@@ -23,7 +23,7 @@ class WikipediaProviders(SearchProviders):
     url: str = "https://en.wikipedia.org/w/api.php"
     name: str = "Wikipedia"
 
-    async def _fetch(self, query: str) -> list[WikipediaResult] | None:
+    async def _fetch(self, query: str) -> list[WikipediaResult]:
         params = {
             "action": "query",
             "format": "json",

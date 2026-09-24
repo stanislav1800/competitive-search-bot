@@ -22,7 +22,7 @@ class StackOverflowProvider(SearchProviders):
     url: str = "https://api.stackexchange.com/2.3/search/advanced"
     name: str = "StackOverflow"
 
-    async def _fetch(self, query: str) -> list[StackOverflowResult] | None:
+    async def _fetch(self, query: str) -> list[StackOverflowResult]:
         params = {
             "q": query,
             "order": "desc",

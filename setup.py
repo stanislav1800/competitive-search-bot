@@ -34,7 +34,7 @@ async def on_startup(bot: Bot, dispatcher: Dispatcher):
         GitHubProvider(session, settings.git_token), 
         StackOverflowProvider(session)
     ]
-    search_service = SearchService(session, providers)
+    search_service = SearchService(providers)
     await search_service.start()
     await set_commands(bot)
 
