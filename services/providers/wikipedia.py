@@ -4,6 +4,7 @@ import re
 
 from .base import SearchProviders, SearchResult
 
+
 @dataclass
 class WikipediaResult(SearchResult):
     description: str
@@ -22,7 +23,7 @@ class WikipediaProviders(SearchProviders):
     url: str = "https://en.wikipedia.org/w/api.php"
     name: str = "Wikipedia"
 
-    async def get(self, query: str) -> list[WikipediaResult] | None:
+    async def _fetch(self, query: str) -> list[WikipediaResult] | None:
         params = {
             "action": "query",
             "format": "json",
@@ -32,10 +33,8 @@ class WikipediaProviders(SearchProviders):
         }
 
         async with self.session.get(self.url, params=params, timeout=30) as resp:
-            resp.raise_for_status()
-            data = await resp.json()
-
-            if "query" in data:
+            if resp.status == 200:
+                data = await resp.json()
                 return [
                     WikipediaResult(
                         title=data["title"],
@@ -45,3 +44,5 @@ class WikipediaProviders(SearchProviders):
                     ) 
                     for data in data["query"]["search"]
                 ]
+            else:
+                resp.raise_for_status()

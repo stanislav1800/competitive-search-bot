@@ -10,7 +10,8 @@ router = Router()
 
 @router.message(CommandStart())
 async def cmd_start(msg: Message):
-    pass
+    await msg.answer("Бот для поиска информацию в нескольких независимых источниках. Для поиска воспользуйтесь командой /search")
+
 
 @router.message(Command(commands=["search"]))
 async def cmd_search(msg: Message, state: FSMContext):

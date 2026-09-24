@@ -3,6 +3,7 @@ from html import escape
 
 from .base import SearchProviders, SearchResult
 
+
 @dataclass
 class StackOverflowResult(SearchResult):
     answer_count: int
@@ -16,11 +17,12 @@ class StackOverflowResult(SearchResult):
             f"👍 {self.score} · 💬 {self.answer_count} · {status}\n"
         )
 
+
 class StackOverflowProvider(SearchProviders):
     url: str = "https://api.stackexchange.com/2.3/search/advanced"
     name: str = "StackOverflow"
 
-    async def get(self, query: str) -> list[StackOverflowResult] | None:
+    async def _fetch(self, query: str) -> list[StackOverflowResult] | None:
         params = {
             "q": query,
             "order": "desc",
@@ -30,10 +32,8 @@ class StackOverflowProvider(SearchProviders):
         }
 
         async with self.session.get(self.url, params=params, timeout=30) as resp:
-            resp.raise_for_status()
-            data = await resp.json()
-
-            if "items" in data:
+            if resp.status == 200:
+                data = await resp.json()
                 return [
                     StackOverflowResult(
                         title=item["title"],
@@ -45,3 +45,5 @@ class StackOverflowProvider(SearchProviders):
                     )
                     for item in data["items"]
                 ]
+            else:
+                resp.raise_for_status()

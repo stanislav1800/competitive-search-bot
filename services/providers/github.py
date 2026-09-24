@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from aiohttp import ClientSession
 from aiolimiter import AsyncLimiter
 
-from .base import SearchProviders, SearchResult
+from .base import ProviderError, SearchProviders, SearchResult
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,10 @@ class GitHubResult(SearchResult):
         return text
 
 
+class ProviderRateLimited(ProviderError):
+    user_message = "Превышен лимит запросов, попробуйте через минуту"
+
+
 class GitHubProvider(SearchProviders):
     url: str = "https://api.github.com/search/repositories"
     name: str = "GitHub"
@@ -34,7 +38,7 @@ class GitHubProvider(SearchProviders):
     def __init__(self, session: ClientSession, token: str | None = None) -> None:
         super().__init__(session)
         self.token = token
-        self._limiter = AsyncLimiter(10, 60)
+        self._limiter = AsyncLimiter(1, 6)
         self.headers = {
             "Authorization": f"token {self.token}",
             **self.session.headers
@@ -51,8 +55,8 @@ class GitHubProvider(SearchProviders):
                 return False
             else:
                 resp.raise_for_status()
-                   
-    async def get(self, query: str) -> list[GitHubResult] | None:
+
+    async def _fetch(self, query: str) -> list[GitHubResult] | None:
         params = {
             "q": query,
             "per_page": 5,
@@ -62,23 +66,22 @@ class GitHubProvider(SearchProviders):
             async with self.session.get(self.url, params=params, headers=self.headers, timeout=30) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-
-                    if "items" in data:
-                        return [
-                            GitHubResult(
-                                title=item["full_name"],
-                                url=item["html_url"],
-                                source=self.name,
-                                stars=item["stargazers_count"],
-                                language=item["language"],
-                                description=item["description"],
-                            )
-                            for item in data["items"]
-                        ]
-                    
+                    return [
+                        GitHubResult(
+                            title=item["full_name"],
+                            url=item["html_url"],
+                            source=self.name,
+                            stars=item["stargazers_count"],
+                            language=item["language"],
+                            description=item["description"],
+                        )
+                        for item in data["items"]
+                    ]
+                elif resp.status == 429 or (resp.status == 403 and resp.headers.get("X-RateLimit-Remaining") == "0"):
+                    raise ProviderRateLimited()
                 else:
                     resp.raise_for_status()
 
     async def setup(self) -> None:
         if await self._check_token():
-            self._limiter = AsyncLimiter(30, 60)
+            self._limiter = AsyncLimiter(1, 2)

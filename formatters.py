@@ -1,20 +1,16 @@
-from services.providers.base import SearchResult
+from services.providers.base import ProviderResponse
 
 
-def format_text(answers: dict[str, list[SearchResult]]) -> str:
-    results = ""
-
-    for source, items in answers.items():
-        text = f"<b>Данные по {source}:</b>\n\n"
-
-        if isinstance(items, Exception):
-            text += f"❗️Произошла ошибка при поиске {items.characters_written}\n"
-        elif not items:
+def format_text(responses: list[ProviderResponse]) -> str:
+    report = ""
+    for resp in responses:
+        text = f"<b>Данные по {resp.source}:</b>\n\n"
+        if not resp.ok:
+            text += f"❗️ {resp.error}\n"
+        elif not resp.items:
             text += "🔍 По запросу ничего не найдено\n"
         else:
-            for item in items:
+            for item in resp.items:
                 text += item.render() + "\n"
-
-        results += text + "\n"
-
-    return results
+        report += text + "\n"
+    return report
