@@ -3,7 +3,7 @@ from aiogram.types import BotCommand
 from aiohttp import ClientSession
 
 from config import settings
-from handlers import comands, search
+from handlers import comands
 from services.providers.github import GitHubProvider
 from services.providers.stack_overflow import StackOverflowProvider
 from services.providers.wikipedia import WikipediaProviders
@@ -15,7 +15,6 @@ async def init_bot() -> tuple[Bot, Dispatcher]:
     dp = Dispatcher()
     dp.include_routers(
         comands.router,
-        search.router,
     )
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)

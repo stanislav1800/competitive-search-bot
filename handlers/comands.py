@@ -1,9 +1,9 @@
 from aiogram import Router
-from aiogram.filters import Command, CommandStart
-from aiogram.fsm.context import FSMContext
-from aiogram.types import Message
+from aiogram.filters import Command, CommandObject, CommandStart
+from aiogram.types import LinkPreviewOptions, Message, ReplyParameters
 
-from states import Search
+from formatters import format_text
+from services.search_services import SearchService
 
 router = Router()
 
@@ -14,7 +14,11 @@ async def cmd_start(msg: Message):
 
 
 @router.message(Command(commands=["search"]))
-async def cmd_search(msg: Message, state: FSMContext):
-    await state.clear()
-    await msg.answer("Введите запрос для поиска")
-    await state.set_state(Search.search)
+async def cmd_search(msg: Message, command: CommandObject, search: SearchService):
+    if command.args:
+        message = await msg.answer("🔎 Ищу…", reply_parameters=ReplyParameters(message_id=msg.message_id, quote=command.args))
+        responses = await search.search(command.args)
+        await message.edit_text(format_text(responses), parse_mode="HTML", link_preview_options=LinkPreviewOptions(is_disabled=True))
+    else:
+        await msg.answer("Введите запрос вместе с командой\nПример: /search Python aiogram 3")
+
