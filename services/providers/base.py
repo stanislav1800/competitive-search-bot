@@ -1,7 +1,7 @@
-from abc import ABC, abstractmethod
 import asyncio
-from dataclasses import dataclass, field
 import logging
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
 
@@ -34,32 +34,36 @@ class ProviderError(Exception):
 
 
 class SearchProviders(ABC):
-    url: str
+    base_url: str
     name: str
 
-    def __init__(self, session: ClientSession):
+    def __init__(self, session: ClientSession, base_url: str | None = None):
         self.session = session
+        if base_url is not None:
+            self.base_url = base_url
 
     async def search(self, query: str) -> ProviderResponse:
+        response = ProviderResponse(self.name)
         try:
             async with asyncio.timeout(10):
                 items = await self._fetch(query)
-                return ProviderResponse(self.name, items=items)
+                response.items = items
         except ProviderError as e:
             logger.warning("%s: %s", self.name, e)
-            return ProviderResponse(self.name, error=e.user_message)
-        except asyncio.TimeoutError:
+            response.error = e.user_message
+        except TimeoutError:
             logger.warning("%s: таймаут", self.name)
-            return ProviderResponse(self.name, error=f"{self.name} сейчас перегружен")
+            response.error = f"{self.name} сейчас перегружен"
         except ClientResponseError as e:
             logger.warning("%s: HTTP %s", self.name, e.status)
-            return ProviderResponse(self.name, error="Сервис временно недоступен")
+            response.error = "Сервис временно недоступен"
         except ClientError:
             logger.warning("%s: сетевая ошибка", self.name, exc_info=True)
-            return ProviderResponse(self.name, error="Сервис недоступен")
+            response.error = "Сервис недоступен"
         except Exception:
             logger.exception("Неожиданная ошибка в %s", self.name)
-            return ProviderResponse(self.name, error="Сервис временно недоступен")
+            response.error = "Сервис временно недоступен"
+        return response
 
     @abstractmethod
     async def _fetch(self, query: str) -> list[SearchResult]: ...

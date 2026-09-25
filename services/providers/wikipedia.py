@@ -1,6 +1,6 @@
+import re
 from dataclasses import dataclass
 from html import escape, unescape
-import re
 
 from .base import SearchProviders, SearchResult
 
@@ -20,7 +20,7 @@ class WikipediaResult(SearchResult):
 
 
 class WikipediaProviders(SearchProviders):
-    url: str = "https://en.wikipedia.org/w/api.php"
+    base_url: str = "https://en.wikipedia.org"
     name: str = "Wikipedia"
 
     async def _fetch(self, query: str) -> list[WikipediaResult]:
@@ -32,17 +32,15 @@ class WikipediaProviders(SearchProviders):
             "srlimit": 5,
         }
 
-        async with self.session.get(self.url, params=params, timeout=30) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                return [
-                    WikipediaResult(
-                        title=data["title"],
-                        url=f"https://en.wikipedia.org/?curid={data['pageid']}",
-                        source=self.name,
-                        description=data["snippet"],
-                    ) 
-                    for data in data["query"]["search"]
-                ]
-            else:
-                resp.raise_for_status()
+        async with self.session.get(f"{self.base_url}/w/api.php", params=params, timeout=30) as resp:
+            resp.raise_for_status()
+            data = await resp.json()
+            return [
+                WikipediaResult(
+                    title=data["title"],
+                    url=f"{self.base_url}/?curid={data['pageid']}",
+                    source=self.name,
+                    description=data["snippet"],
+                ) 
+                for data in data["query"]["search"]
+            ]

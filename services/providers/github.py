@@ -1,6 +1,7 @@
-from html import escape
 import logging
 from dataclasses import dataclass
+from html import escape
+from http import HTTPStatus
 
 from aiohttp import ClientSession
 from aiolimiter import AsyncLimiter
@@ -32,11 +33,16 @@ class ProviderRateLimited(ProviderError):
 
 
 class GitHubProvider(SearchProviders):
-    url: str = "https://api.github.com/search/repositories"
+    base_url: str = "https://api.github.com"
     name: str = "GitHub"
 
-    def __init__(self, session: ClientSession, token: str | None = None) -> None:
-        super().__init__(session)
+    def __init__(
+        self, 
+        session: ClientSession, 
+        base_url: str | None = None, 
+        token: str | None = None,
+    ) -> None:
+        super().__init__(session, base_url)
         self.token = token
         self._limiter = AsyncLimiter(1, 6)
         self.headers = self.session.headers
@@ -50,17 +56,16 @@ class GitHubProvider(SearchProviders):
             "Authorization": f"token {self.token}",
             **self.session.headers
         }
-        async with self.session.get("https://api.github.com/user", headers=headers) as resp:
-            if resp.status == 200:
+        async with self.session.get(f"{self.base_url}/user", headers=headers) as resp:
+            if resp.status == HTTPStatus.OK:
                 data = await resp.json()
                 logger.info(f"Токен валиден, пользователь: {data['login']}")
                 self.headers = headers
                 return True
-            elif resp.status == 401:
+            elif resp.status == HTTPStatus.UNAUTHORIZED:
                 logger.info("Токен невалиден или истёк")
                 return False
-            else:
-                resp.raise_for_status()
+            resp.raise_for_status()
 
     async def _fetch(self, query: str) -> list[GitHubResult]:
         params = {
@@ -68,25 +73,23 @@ class GitHubProvider(SearchProviders):
             "per_page": 5,
         }
 
-        async with self._limiter:
-            async with self.session.get(self.url, params=params, headers=self.headers, timeout=30) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    return [
-                        GitHubResult(
-                            title=item["full_name"],
-                            url=item["html_url"],
-                            source=self.name,
-                            stars=item["stargazers_count"],
-                            language=item["language"],
-                            description=item["description"],
-                        )
-                        for item in data["items"]
-                    ]
-                elif resp.status == 429 or (resp.status == 403 and resp.headers.get("X-RateLimit-Remaining") == "0"):
+        async with self._limiter:                                                                           # noqa: SIM117
+            async with self.session.get(f"{self.base_url}/search/repositories", params=params, headers=self.headers, timeout=30) as resp:
+                if resp.status == HTTPStatus.TOO_MANY_REQUESTS or (resp.status == HTTPStatus.FORBIDDEN and resp.headers.get("X-RateLimit-Remaining") == "0"):
                     raise ProviderRateLimited()
-                else:
-                    resp.raise_for_status()
+                resp.raise_for_status()
+                data = await resp.json()
+                return [
+                    GitHubResult(
+                        title=item["full_name"],
+                        url=item["html_url"],
+                        source=self.name,
+                        stars=item["stargazers_count"],
+                        language=item["language"],
+                        description=item["description"],
+                    )
+                    for item in data["items"]
+                ]
 
     async def setup(self) -> None:
         if await self._check_token():

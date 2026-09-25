@@ -1,7 +1,5 @@
-import logging
-
-from aiohttp import ClientSession
 import asyncio
+import logging
 
 from services.providers.base import ProviderResponse, SearchProviders
 
@@ -13,7 +11,7 @@ class SearchService:
         self.providers = providers
 
     async def start(self) -> None:
-        await asyncio.gather(*[provider.setup() for provider in self.providers], return_exceptions=True)
+        await asyncio.gather(*(provider.setup() for provider in self.providers), return_exceptions=True)
 
     async def search(self, query: str) -> list[ProviderResponse]:
-        return await asyncio.gather(*[provider.search(query) for provider in self.providers])
+        return await asyncio.gather(*(provider.search(query) for provider in self.providers))
