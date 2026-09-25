@@ -1,9 +1,11 @@
 import asyncio
+from http import HTTPStatus
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
-from aiohttp import ClientError, ClientResponseError, ClientSession
+from aiohttp import ClientConnectionError, ClientError, ClientResponseError, ClientSession
+from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception, stop_after_attempt, wait_exponential, stop_after_delay
 
 logger = logging.getLogger(__name__)
 
@@ -45,9 +47,16 @@ class SearchProviders(ABC):
     async def search(self, query: str) -> ProviderResponse:
         response = ProviderResponse(self.name)
         try:
-            async with asyncio.timeout(10):
-                items = await self._fetch(query)
-                response.items = items
+            async for attempt in AsyncRetrying(
+                stop=stop_after_attempt(3) | stop_after_delay(10),
+                wait=wait_exponential(multiplier=0.5, max=2),
+                retry=retry_if_exception(self._is_transient),
+                before_sleep=before_sleep_log(logger, logging.WARNING),
+                reraise=True,
+            ):
+                with attempt:
+                    async with asyncio.timeout(4):
+                        response.items = await self._fetch(query)
         except ProviderError as e:
             logger.warning("%s: %s", self.name, e)
             response.error = e.user_message
@@ -69,3 +78,9 @@ class SearchProviders(ABC):
     async def _fetch(self, query: str) -> list[SearchResult]: ...
 
     async def setup(self) -> None: ...
+
+    @staticmethod
+    def _is_transient(exc: BaseException) -> bool:
+        if isinstance(exc, ClientResponseError):
+            return exc.status >= HTTPStatus.INTERNAL_SERVER_ERROR
+        return isinstance(exc, (TimeoutError, ClientConnectionError))

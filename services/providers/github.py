@@ -46,10 +46,11 @@ class GitHubProvider(SearchProviders):
         self.token = token
         self._limiter = AsyncLimiter(1, 6)
         self.headers = self.session.headers
-        self.headers = {
-            "Authorization": f"token {self.token}",
-            **self.session.headers
-        }
+        if token is not None:
+            self.headers = {
+                "Authorization": f"token {self.token}",
+                **self.session.headers
+            }
 
     async def _check_token(self) -> bool:
         headers = {
