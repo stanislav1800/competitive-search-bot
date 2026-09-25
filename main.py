@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+from config import settings
 from logging_config import setup_logging
 from setup import init_bot
 
@@ -15,5 +16,5 @@ async def main():
 
 
 if __name__ == "__main__":
-    setup_logging()
+    setup_logging(level=settings.log_level ,dirs=settings.log_dirs)
     asyncio.run(main())

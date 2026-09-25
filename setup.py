@@ -30,9 +30,9 @@ async def on_startup(bot: Bot, dispatcher: Dispatcher):
     )
 
     providers = [
-        WikipediaProviders(session), 
-        GitHubProvider(session, settings.git_token), 
-        StackOverflowProvider(session)
+        WikipediaProviders(session, settings.wikipedia_url),
+        GitHubProvider(session, settings.github_url, settings.git_token),
+        StackOverflowProvider(session, settings.stack_overflow_url),
     ]
     search_service = SearchService(providers)
     await search_service.start()
