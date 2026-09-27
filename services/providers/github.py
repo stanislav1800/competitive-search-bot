@@ -6,7 +6,8 @@ from http import HTTPStatus
 from aiohttp import ClientSession
 from aiolimiter import AsyncLimiter
 
-from .base import ProviderError, SearchProviders, SearchResult
+from services.errors import SourceRateLimited
+from services.providers.base import SearchProviders, SearchResult
 
 logger = logging.getLogger(__name__)
 
@@ -26,10 +27,6 @@ class GitHubResult(SearchResult):
             text += f" · {escape(self.language)}"
         text += "\n"
         return text
-
-
-class ProviderRateLimited(ProviderError):
-    user_message = "Превышен лимит запросов, попробуйте через минуту"
 
 
 class GitHubProvider(SearchProviders):
@@ -77,7 +74,7 @@ class GitHubProvider(SearchProviders):
         async with self._limiter:                                                                           # noqa: SIM117
             async with self.session.get(f"{self.base_url}/search/repositories", params=params, headers=self.headers, timeout=30) as resp:
                 if resp.status == HTTPStatus.TOO_MANY_REQUESTS or (resp.status == HTTPStatus.FORBIDDEN and resp.headers.get("X-RateLimit-Remaining") == "0"):
-                    raise ProviderRateLimited()
+                    raise SourceRateLimited()
                 resp.raise_for_status()
                 data = await resp.json()
                 return [

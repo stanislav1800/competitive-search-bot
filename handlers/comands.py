@@ -1,5 +1,3 @@
-import asyncio
-
 from aiogram import F, Router
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import LinkPreviewOptions, Message, ReplyParameters
@@ -8,13 +6,13 @@ from limits.aio.storage import MemoryStorage
 from limits.aio.strategies import MovingWindowRateLimiter
 
 from formatters import format_text
+from services.errors import SearchError
 from services.search_services import SearchService
 
 router = Router()
 limiter = MovingWindowRateLimiter(MemoryStorage())
 limit = RateLimitItemPerMinute(5)
 warn_limit = RateLimitItemPerSecond(1, 10)
-semaphore = asyncio.Semaphore(20)
 active_search_users: set[int] = set()
 
 
@@ -38,14 +36,13 @@ async def cmd_search_args(msg: Message, command: CommandObject, search: SearchSe
                 await msg.answer("Слишком часто, подождите немного")
             return
         
-        if semaphore.locked():
-            await msg.answer("Сервис сейчас перегружен, попробуйте позже")
-            return
-        
-        async with semaphore:
-            message = await msg.answer("🔎 Ищу…", reply_parameters=ReplyParameters(message_id=msg.message_id, quote=command.args))
+        message = await msg.answer("🔎 Ищу…", reply_parameters=ReplyParameters(message_id=msg.message_id, quote=command.args))
+        try:
             responses = await search.search(command.args)
-            await message.edit_text(format_text(responses), parse_mode="HTML", link_preview_options=LinkPreviewOptions(is_disabled=True))
+        except SearchError as e:
+            await message.edit_text(e.user_message)
+            return
+        await message.edit_text(format_text(responses), parse_mode="HTML", link_preview_options=LinkPreviewOptions(is_disabled=True))
     finally:
         active_search_users.discard(user_id)
 

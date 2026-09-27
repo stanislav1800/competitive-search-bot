@@ -1,11 +1,26 @@
 import asyncio
-from http import HTTPStatus
+import json
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from http import HTTPStatus
 
-from aiohttp import ClientConnectionError, ClientError, ClientResponseError, ClientSession
-from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception, stop_after_attempt, wait_exponential, stop_after_delay
+from aiohttp import (
+    ClientConnectionError,
+    ClientError,
+    ClientResponseError,
+    ClientSession,
+)
+from tenacity import (
+    AsyncRetrying,
+    before_sleep_log,
+    retry_if_exception,
+    stop_after_attempt,
+    stop_after_delay,
+    wait_exponential,
+)
+
+from services.errors import SearchError, SourceUnavailable
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +46,6 @@ class ProviderResponse:
         return self.error is None
 
 
-class ProviderError(Exception):
-    user_message = "Сервис временно недоступен"
-
-
 class SearchProviders(ABC):
     base_url: str
     name: str
@@ -57,21 +68,15 @@ class SearchProviders(ABC):
                 with attempt:
                     async with asyncio.timeout(4):
                         response.items = await self._fetch(query)
-        except ProviderError as e:
+        except SearchError as e:
             logger.warning("%s: %s", self.name, e)
             response.error = e.user_message
-        except TimeoutError:
-            logger.warning("%s: таймаут", self.name)
-            response.error = f"{self.name} сейчас перегружен"
-        except ClientResponseError as e:
-            logger.warning("%s: HTTP %s", self.name, e.status)
-            response.error = "Сервис временно недоступен"
-        except ClientError:
-            logger.warning("%s: сетевая ошибка", self.name, exc_info=True)
-            response.error = "Сервис недоступен"
+        except (TimeoutError, ClientError, json.JSONDecodeError) as e:
+            logger.warning("%s: %r", self.name, e)
+            response.error = SourceUnavailable.user_message
         except Exception:
             logger.exception("Неожиданная ошибка в %s", self.name)
-            response.error = "Сервис временно недоступен"
+            response.error = SourceUnavailable.user_message
         return response
 
     @abstractmethod
