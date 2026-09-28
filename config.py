@@ -15,6 +15,7 @@ class Settings:
     wikipedia_url: str | None = os.getenv("WIKIPEDIA_URL")
     github_url: str | None = os.getenv("GITHUB_URL")
     stack_overflow_url: str | None = os.getenv("STACK_OVERFLOW_URL")
+    max_concurrent_searches: int = int(os.getenv("MAX_CONCURRENT_SEARCHES") or 20)
 
 
 settings = Settings()

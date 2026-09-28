@@ -43,11 +43,6 @@ class GitHubProvider(SearchProviders):
         self.token = token
         self._limiter = AsyncLimiter(1, 6)
         self.headers = self.session.headers
-        if token is not None:
-            self.headers = {
-                "Authorization": f"token {self.token}",
-                **self.session.headers
-            }
 
     async def _check_token(self) -> bool:
         headers = {
@@ -57,7 +52,7 @@ class GitHubProvider(SearchProviders):
         async with self.session.get(f"{self.base_url}/user", headers=headers) as resp:
             if resp.status == HTTPStatus.OK:
                 data = await resp.json()
-                logger.info(f"Токен валиден, пользователь: {data['login']}")
+                logger.info("Токен валиден, пользователь: %s", data['login'])
                 self.headers = headers
                 return True
             elif resp.status == HTTPStatus.UNAUTHORIZED:
@@ -71,6 +66,9 @@ class GitHubProvider(SearchProviders):
             "per_page": 5,
         }
 
+        if not self._limiter.has_capacity():
+            raise SourceRateLimited()
+        
         async with self._limiter:                                                                           # noqa: SIM117
             async with self.session.get(f"{self.base_url}/search/repositories", params=params, headers=self.headers, timeout=30) as resp:
                 if resp.status == HTTPStatus.TOO_MANY_REQUESTS or (resp.status == HTTPStatus.FORBIDDEN and resp.headers.get("X-RateLimit-Remaining") == "0"):
@@ -90,5 +88,5 @@ class GitHubProvider(SearchProviders):
                 ]
 
     async def setup(self) -> None:
-        if await self._check_token():
+        if self.token is not None and await self._check_token():
             self._limiter = AsyncLimiter(1, 2)

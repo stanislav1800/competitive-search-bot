@@ -59,14 +59,14 @@ class SearchProviders(ABC):
         response = ProviderResponse(self.name)
         try:
             async for attempt in AsyncRetrying(
-                stop=stop_after_attempt(3) | stop_after_delay(10),
+                stop=stop_after_attempt(2) | stop_after_delay(10),
                 wait=wait_exponential(multiplier=0.5, max=2),
                 retry=retry_if_exception(self._is_transient),
                 before_sleep=before_sleep_log(logger, logging.WARNING),
                 reraise=True,
             ):
                 with attempt:
-                    async with asyncio.timeout(4):
+                    async with asyncio.timeout(3):
                         response.items = await self._fetch(query)
         except SearchError as e:
             logger.warning("%s: %s", self.name, e)

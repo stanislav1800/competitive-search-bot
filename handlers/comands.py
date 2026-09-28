@@ -1,3 +1,5 @@
+import asyncio
+
 from aiogram import F, Router
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import LinkPreviewOptions, Message, ReplyParameters
@@ -8,6 +10,8 @@ from services.errors import SearchError
 from services.search_services import SearchService
 
 router = Router()
+
+SEARCH_PLACEHOLDER_DELAY = 0.5
 
 
 @router.message(CommandStart())
@@ -20,13 +24,26 @@ async def cmd_start(msg: Message):
     flags={"rate_limit": RateLimitItemPerMinute(5), "single_active": True},
 )
 async def cmd_search_args(msg: Message, command: CommandObject, search: SearchService):
-    message = await msg.answer("🔎 Ищу…", reply_parameters=ReplyParameters(message_id=msg.message_id, quote=command.args))
+    reply = ReplyParameters(message_id=msg.message_id, quote=command.args)
+    task = asyncio.create_task(search.search(command.args))
+
+    done, _ = await asyncio.wait({task}, timeout=SEARCH_PLACEHOLDER_DELAY)
+    placeholder = None
+    if not done:
+        placeholder = await msg.answer("🔎 Ищу…", reply_parameters=reply)
+
     try:
-        responses = await search.search(command.args)
+        responses = await task
     except SearchError as e:
-        await message.edit_text(e.user_message)
-        return
-    await message.edit_text(format_text(responses), parse_mode="HTML", link_preview_options=LinkPreviewOptions(is_disabled=True))
+        text, options = e.user_message, {}
+    else:
+        text = format_text(responses)
+        options = {"parse_mode": "HTML", "link_preview_options": LinkPreviewOptions(is_disabled=True)}
+
+    if placeholder is None:
+        await msg.answer(text, reply_parameters=reply, **options)
+    else:
+        await placeholder.edit_text(text, **options)
 
 
 @router.message(Command(commands=["search"]))
