@@ -1,9 +1,13 @@
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
 from aiohttp import ClientSession
+from limits import RateLimitItemPerSecond
+from limits.aio.storage import MemoryStorage
+from limits.aio.strategies import MovingWindowRateLimiter
 
 from config import settings
 from handlers import comands
+from middleware import ActiveSearchMiddleware, RateLimitMiddleware
 from services.providers.github import GitHubProvider
 from services.providers.stack_overflow import StackOverflowProvider
 from services.providers.wikipedia import WikipediaProviders
@@ -18,6 +22,12 @@ async def init_bot() -> tuple[Bot, Dispatcher]:
     )
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
+
+    limiter = MovingWindowRateLimiter(MemoryStorage())
+    warn_limit = RateLimitItemPerSecond(1, 10)
+    dp.message.middleware(ActiveSearchMiddleware(limiter, warn_limit))
+    dp.message.middleware(RateLimitMiddleware(limiter, warn_limit))
+
     return bot, dp
 
 
