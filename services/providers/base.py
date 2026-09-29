@@ -11,6 +11,7 @@ from aiohttp import (
     ClientResponseError,
     ClientSession,
 )
+from cachetools import TTLCache
 from tenacity import (
     AsyncRetrying,
     before_sleep_log,
@@ -54,8 +55,13 @@ class SearchProviders(ABC):
         self.session = session
         if base_url is not None:
             self.base_url = base_url
+        self._cache: TTLCache[str, list[SearchResult]] = TTLCache(maxsize=1000, ttl=600)
 
     async def search(self, query: str) -> ProviderResponse:
+        key = query.strip().lower()
+        if (items := self._cache.get(key)) is not None:
+            return ProviderResponse(self.name, items=items)
+        
         response = ProviderResponse(self.name)
         try:
             async for attempt in AsyncRetrying(
@@ -77,6 +83,8 @@ class SearchProviders(ABC):
         except Exception:
             logger.exception("Неожиданная ошибка в %s", self.name)
             response.error = SourceUnavailable.user_message
+        if response.ok:
+            self._cache[key] = response.items
         return response
 
     @abstractmethod
