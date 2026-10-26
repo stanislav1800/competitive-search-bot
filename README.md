@@ -61,6 +61,7 @@ Telegram → Middlewares → Handler (/search) → SearchService → прова�
 - python-dotenv — конфигурация из `.env`
 - ruff — линтер (dev)
 - [uv](https://docs.astral.sh/uv/) — управление зависимостями
+- Docker, Docker Compose — развёртывание
 
 ## Установка и запуск
 
@@ -70,6 +71,26 @@ cd competitive-search-bot
 uv sync
 cp .env.example .env   # заполнить переменные
 uv run main.py
+```
+
+### Docker
+
+```bash
+cp .env.example .env   # заполнить переменные
+docker compose up -d --build
+```
+
+- Переменные берутся из `.env` через `env_file`, сам файл в образ не копируется.
+- `LOG_DIRS` из `.env` задаёт директорию логов на хосте (если не задана — `./logs`). Она монтируется в контейнер как `/app/logs`, и внутри контейнера бот пишет логи туда.
+- Контейнер перезапускается автоматически (`restart: unless-stopped`).
+- Бот работает через long polling, открывать порты не нужно.
+
+Полезные команды:
+
+```bash
+docker compose logs -f bot    # логи в реальном времени
+docker compose restart bot    # перезапуск
+docker compose down           # остановка
 ```
 
 ## Конфигурация
@@ -95,6 +116,8 @@ uv run main.py
 ├── config.py                # настройки из переменных окружения
 ├── logging_config.py        # консольный и файловый логгер
 ├── middleware.py            # rate limit и «один активный поиск»
+├── Dockerfile               # образ на базе uv + Python 3.12
+├── docker-compose.yml       # запуск бота в контейнере
 ├── formatters.py            # HTML-форматирование и разбивка на сообщения
 ├── handlers
 │   └── comands.py           # /start и /search

@@ -1,0 +1,10 @@
+.git
+.venv
+.env
+.idea
+.vscode
+.ruff_cache
+__pycache__
+*.py[oc]
+logs
+test.py

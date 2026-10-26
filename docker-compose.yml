@@ -1,0 +1,13 @@
+services:
+  bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      LOG_DIRS: /app/logs
+    volumes:
+      - type: bind
+        source: ${LOG_DIRS:-./logs}
+        target: /app/logs
+        bind:
+          create_host_path: true
