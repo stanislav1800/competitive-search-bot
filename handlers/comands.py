@@ -5,13 +5,14 @@ from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import LinkPreviewOptions, Message, ReplyParameters
 from limits import RateLimitItemPerMinute
 
-from formatters import format_text
+from formatters import format_messages
 from services.errors import SearchError
 from services.search_services import SearchService
 
 router = Router()
 
 SEARCH_PLACEHOLDER_DELAY = 0.5
+MAX_QUERY_LENGTH = 256
 
 
 @router.message(CommandStart())
@@ -24,6 +25,10 @@ async def cmd_start(msg: Message):
     flags={"rate_limit": RateLimitItemPerMinute(5), "single_active": True},
 )
 async def cmd_search_args(msg: Message, command: CommandObject, search: SearchService):
+    if len(command.args) > MAX_QUERY_LENGTH:
+        await msg.answer(f"Запрос слишком длинный, максимум {MAX_QUERY_LENGTH} символов")
+        return
+
     reply = ReplyParameters(message_id=msg.message_id, quote=command.args)
     task = asyncio.create_task(search.search(command.args))
 
@@ -35,15 +40,18 @@ async def cmd_search_args(msg: Message, command: CommandObject, search: SearchSe
     try:
         responses = await task
     except SearchError as e:
-        text, options = e.user_message, {}
+        texts, options = [e.user_message], {}
     else:
-        text = format_text(responses)
+        texts = format_messages(responses)
         options = {"parse_mode": "HTML", "link_preview_options": LinkPreviewOptions(is_disabled=True)}
 
+    first, *rest = texts
     if placeholder is None:
-        await msg.answer(text, reply_parameters=reply, **options)
+        await msg.answer(first, reply_parameters=reply, **options)
     else:
-        await placeholder.edit_text(text, **options)
+        await placeholder.edit_text(first, **options)
+    for text in rest:
+        await msg.answer(text, **options)
 
 
 @router.message(Command(commands=["search"]))

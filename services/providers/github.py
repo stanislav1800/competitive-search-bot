@@ -7,7 +7,7 @@ from aiohttp import ClientSession
 from aiolimiter import AsyncLimiter
 
 from services.errors import SourceRateLimited
-from services.providers.base import SearchProviders, SearchResult
+from services.providers.base import SearchProviders, SearchResult, shorten
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class GitHubResult(SearchResult):
     def render(self) -> str:
         text = f'<a href="{self.url}"><b>{escape(self.title)}</b></a>\n'
         if self.description:
-            text += f"{escape(self.description)}\n"
+            text += f"{escape(shorten(self.description))}\n"
         text += f"⭐ {self.stars}"
         if self.language:
             text += f" · {escape(self.language)}"

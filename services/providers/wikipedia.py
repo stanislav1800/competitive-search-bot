@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass
 from html import escape, unescape
 
-from .base import SearchProviders, SearchResult
+from .base import SearchProviders, SearchResult, shorten
 
 
 @dataclass
@@ -14,7 +14,7 @@ class WikipediaResult(SearchResult):
         if self.description:
             description = unescape(self.description)
             description = re.sub(r"</?span[^>]*>", "", description)
-            description = escape(description)
+            description = escape(shorten(description))
             text += f"{description}\n"
         return text
 

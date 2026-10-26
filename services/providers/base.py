@@ -25,6 +25,15 @@ from services.errors import SearchError, SourceUnavailable
 
 logger = logging.getLogger(__name__)
 
+DESCRIPTION_LIMIT = 300
+
+
+def shorten(text: str, limit: int = DESCRIPTION_LIMIT) -> str:
+    """Обрезает текст до limit символов с многоточием. Вызывать до escape(), чтобы не разрезать HTML-сущность."""
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"
+
 
 @dataclass
 class SearchResult(ABC):
